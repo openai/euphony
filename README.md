@@ -1,6 +1,6 @@
 # Euphony: Harmony Chat and Codex Session Viewer
 
-[![Github Actions Status](https://github.com/openai/euphony/workflows/build/badge.svg)](https://github.com/openai/euphony/actions/workflows/build.yml)
+[![Build](https://github.com/openai/euphony/actions/workflows/build.yml/badge.svg)](https://github.com/openai/euphony/actions/workflows/build.yml)
 [![license](https://img.shields.io/badge/License-Apache%202.0-blue)](https://github.com/openai/euphony/blob/main/LICENSE)
 
 Visualize harmony chat conversations and Codex sessions in your browser 🎵
