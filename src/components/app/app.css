@@ -56,11 +56,14 @@
 
 .header {
   width: 100%;
-  padding: 20px 0 20px 0;
+  padding: 20px max(12px, env(safe-area-inset-right)) 20px
+    max(12px, env(safe-area-inset-left));
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   gap: 10px;
+  box-sizing: border-box;
 
   position: sticky;
   top: 0px;
@@ -75,6 +78,7 @@
   z-index: 3;
 
   .name {
+    flex: 0 0 auto;
     font-weight: 700;
   }
 
@@ -84,7 +88,83 @@
   }
 
   & sl-input {
-    width: 560px;
+    /* Let the URL field keep its desktop width while still yielding on phones. */
+    flex: 1 1 280px;
+    width: clamp(220px, 48vw, 560px);
+    max-width: 560px;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .content {
+    /* The desktop side gutters clip labels on smaller screens, so the center
+       column becomes the only layout column below the tablet breakpoint. */
+    display: block;
+    padding: 0 max(10px, env(safe-area-inset-right)) 0
+      max(10px, env(safe-area-inset-left));
+    box-sizing: border-box;
+  }
+
+  .content-left,
+  .content-right {
+    display: none;
+  }
+
+  .content-center {
+    align-items: stretch;
+  }
+
+  .content-center .grid-header {
+    align-self: stretch;
+    max-width: 100%;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+    padding: 10px max(10px, env(safe-area-inset-right)) 14px
+      max(10px, env(safe-area-inset-left));
+
+    .name,
+    & sl-input {
+      width: 100%;
+    }
+
+    & sl-input {
+      /* Put the long URL field on its own row so action buttons stay tappable. */
+      flex-basis: 100%;
+      max-width: 100%;
+      order: 2;
+    }
+
+    .button-load,
+    .button-menu {
+      /* Override the desktop 100% button height so mobile controls stay compact. */
+      height: 32px;
+      justify-content: center;
+      order: 3;
+    }
+
+    .button-load {
+      flex: 1 1 max-content;
+      min-width: 0;
+    }
+
+    .button-menu {
+      flex: 0 0 32px;
+      padding-inline: 0;
+      order: 4;
+    }
+
+    .menu-container {
+      left: auto;
+      right: 0;
+    }
   }
 }
 
