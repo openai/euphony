@@ -52,7 +52,7 @@ export class RequestWorker {
    */
   async translationRequestHandler(e: CustomEvent<TranslationRequest>) {
     const { text, resolve, reject } = e.detail;
-    const requestOptions = {
+    const requestOptions: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -60,7 +60,7 @@ export class RequestWorker {
       body: JSON.stringify({
         source: text
       }),
-      Credentials: 'include'
+      credentials: 'include'
     };
 
     // Helper function to delay execution
