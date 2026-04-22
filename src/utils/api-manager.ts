@@ -198,9 +198,9 @@ export class APIManager {
     jmespathQuery: string;
   }): Promise<BlobJSONLPayload> => {
     // Fetch the blob
-    const requestOptions = {
+    const requestOptions: RequestInit = {
       method: 'GET',
-      Credentials: 'include'
+      credentials: 'include'
     };
 
     const queryPath = new URLSearchParams();
@@ -262,9 +262,9 @@ export class APIManager {
 
   refreshRendererList = async () => {
     // Fetch the blob
-    const requestOptions = {
+    const requestOptions: RequestInit = {
       method: 'GET',
-      Credentials: 'include'
+      credentials: 'include'
     };
 
     const response = await fetch(
