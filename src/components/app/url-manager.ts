@@ -46,6 +46,20 @@ export class URLManager {
       params.delete('grid');
     }
 
+    // Editor mode
+    if (this.app.isEditorMode) {
+      params.set('editor', 'true');
+    } else {
+      params.delete('editor');
+    }
+
+    // Frontend only mode
+    if (this.app.isFrontendOnlyMode) {
+      params.set('frontend-only', 'true');
+    } else {
+      params.delete('frontend-only');
+    }
+
     const paramsString = params.toString();
 
     history.pushState({}, '', `?${paramsString}${currentHash}`);
