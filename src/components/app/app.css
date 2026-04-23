@@ -1,5 +1,11 @@
 @import '../../css/component-global.css';
 
+.app-shell {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
 .app {
   width: 100%;
   height: 100%;
@@ -52,6 +58,69 @@
   &[is-loading] {
     pointer-events: none;
   }
+}
+
+.local-file-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: 24px;
+  box-sizing: border-box;
+
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in lab, var(--blue-50), white 18%) 0%,
+      color-mix(in lab, var(--blue-100), white 30%) 100%
+    ),
+    rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(6px);
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+
+  &[is-visible] {
+    opacity: 1;
+  }
+}
+
+.local-file-drop-panel {
+  width: min(520px, calc(100vw - 48px));
+  padding: 28px 32px;
+  box-sizing: border-box;
+
+  border: 2px dashed color-mix(in lab, var(--blue-300), black 8%);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 20px 50px rgba(0, 90, 142, 0.12),
+    0 6px 20px rgba(17, 27, 39, 0.08);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.local-file-drop-title {
+  color: var(--blue-900);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.local-file-drop-subtitle {
+  color: var(--gray-700);
+  font-size: var(--font-d2);
+  line-height: 1.5;
+  max-width: 36ch;
 }
 
 .header {
@@ -646,6 +715,8 @@ button,
 .toast-container {
   position: absolute;
   top: 7px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 5;
   display: flex;
   justify-content: center;
