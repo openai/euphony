@@ -1089,17 +1089,22 @@ export class EuphonyConversation extends LitElement {
       // We only translate [text messages, developer messages]
       const contentType = getContentTypeFromContent(message.content);
       if (contentType === 'text' || contentType === 'developer') {
-        const content = [message.content[0]];
-        // Ignore the below check because ts wants us to split it into n
-        // different conditions
-        // @ts-ignore
-        const translatableMessage: TranslatableMessage = {
-          ...message,
-          content: content as
-            | TextMessageContent[]
-            | DeveloperContentMessageContent[],
-          isTranslated: false
-        };
+        // Normalize string content into a text object before translating so
+        // downstream updates mutate the translated message clone.
+        const content = getContentFromContentOrString(message.content);
+        const translatableMessage: TranslatableMessage =
+          contentType === 'text'
+            ? {
+                ...translatedMessages[i],
+                content: [content as TextMessageContent],
+                isTranslated: false
+              }
+            : {
+                ...translatedMessages[i],
+                content: [content as DeveloperContentMessageContent],
+                isTranslated: false
+              };
+        translatedMessages[i] = translatableMessage;
         promises.push(updateMessageWithTranslation(translatableMessage, i));
       }
     }
