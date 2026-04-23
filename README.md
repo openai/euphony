@@ -30,7 +30,7 @@ structured chat data and Codex sessions in the browser.
 | :-------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
 | Harmony conversation viewer | Renders Harmony conversations with support for different message types and metadata.                                       |
 | Codex session viewer        | Detects Codex session JSONL files, converts them into a conversation, and renders them in the same viewer.                 |
-| Flexible loading            | Loads data from the clipboard, local `.json` or `.jsonl` files, or public HTTP(S) JSON/JSONL URLs.                         |
+| Flexible loading            | Loads data from drag-and-drop, the clipboard, local `.json` or `.jsonl` files, or public HTTP(S) JSON/JSONL URLs.          |
 | Markdown and HTML rendering | Renders markdown in message content, including formulas and optional HTML blocks.                                          |
 | Translation                 | Translates non-English text into English in normal mode or frontend-only mode with a user-provided OpenAI API key.         |
 | Metadata inspection         | Exposes conversation-level and message-level metadata directly in the UI.                                                  |
@@ -50,8 +50,9 @@ There are two ways you can use Euphony.
 
 1. Load data from one of the supported sources:
    1. Paste JSON or JSONL from the clipboard
-   2. Choose a local `.json` or `.jsonl` file
-   3. Provide a public HTTP(S) URL that serves JSON or JSONL (e.g., Hugging Face)
+   2. Drag and drop a local `.json` or `.jsonl` file onto the app
+   3. Choose a local `.json` or `.jsonl` file
+   4. Provide a public HTTP(S) URL that serves JSON or JSONL (e.g., Hugging Face)
 2. Euphony automatically detects and renders the input:
    1. If the JSONL is a list of conversations → Euphony renders all conversations
    2. If the JSONL is a Codex session file → Euphony renders a structured Codex session timeline

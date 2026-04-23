@@ -257,6 +257,9 @@ export class EuphonyApp extends LitElement {
   @state()
   isLoadingFromClipboard = false;
 
+  @state()
+  isDraggingLocalFile = false;
+
   // Grid view mode
   @state()
   isGridView = false;
@@ -294,6 +297,7 @@ export class EuphonyApp extends LitElement {
 
   // Debouncers
   cacheInfoTooltipDebouncer: number | null = null;
+  fileDragDepth = 0;
 
   //==========================================================================||
   //                             Lifecycle Methods                            ||
@@ -928,6 +932,79 @@ export class EuphonyApp extends LitElement {
     }
   }
 
+  isFileDragEvent(e: DragEvent) {
+    return e.dataTransfer?.types.includes('Files') ?? false;
+  }
+
+  resetFileDragState() {
+    this.fileDragDepth = 0;
+    this.isDraggingLocalFile = false;
+  }
+
+  appDragEnter(e: DragEvent) {
+    if (!this.isFileDragEvent(e)) {
+      return;
+    }
+
+    e.preventDefault();
+    this.fileDragDepth += 1;
+    this.isDraggingLocalFile = true;
+  }
+
+  appDragOver(e: DragEvent) {
+    if (!this.isFileDragEvent(e)) {
+      return;
+    }
+
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+    this.isDraggingLocalFile = true;
+  }
+
+  appDragLeave(e: DragEvent) {
+    if (!this.isFileDragEvent(e)) {
+      return;
+    }
+
+    e.preventDefault();
+    this.fileDragDepth = Math.max(0, this.fileDragDepth - 1);
+    if (this.fileDragDepth === 0) {
+      this.isDraggingLocalFile = false;
+    }
+  }
+
+  appDrop(e: DragEvent) {
+    if (!this.isFileDragEvent(e)) {
+      return;
+    }
+
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer?.files ?? []);
+    this.resetFileDragState();
+
+    if (droppedFiles.length === 0) {
+      return;
+    }
+
+    if (droppedFiles.length > 1) {
+      this.toastMessage =
+        'Please drop exactly one local JSON or JSONL file at a time.';
+      this.toastType = 'error';
+      this.toastComponent?.show();
+      return;
+    }
+
+    this.isLoadingData = true;
+    this.loadDataFromFile(droppedFiles[0]).catch((error: unknown) => {
+      this.toastMessage = `Failed to read local file.\n\n${error}`;
+      this.toastType = 'error';
+      this.toastComponent?.show();
+      this.isLoadingData = false;
+    });
+  }
+
   preferenceWindowMaxMessageHeightChanged(e: CustomEvent<string>) {
     const newHeight = e.detail;
     this.euphonyStyleConfig['--euphony-max-message-height'] = newHeight;
@@ -1329,10 +1406,7 @@ export class EuphonyApp extends LitElement {
     }
   };
 
-  loadDataFromText = (
-    sourceText: string,
-    sourceName: 'clipboard' | 'file'
-  ) => {
+  loadDataFromText = (sourceText: string, sourceName: 'clipboard' | 'file') => {
     this.curPage = 1;
     this.resetHash();
     const requestID = this.localDataWorkerRequestID;
@@ -2233,10 +2307,37 @@ export class EuphonyApp extends LitElement {
 
     return html`
       <div
-        class="app"
-        ?is-loading=${this.isLoadingData}
+        class="app-shell"
         style=${this.buildEuphonyStyle(this.appStyleConfig)}
+        @dragenter=${(e: DragEvent) => {
+          this.appDragEnter(e);
+        }}
+        @dragover=${(e: DragEvent) => {
+          this.appDragOver(e);
+        }}
+        @dragleave=${(e: DragEvent) => {
+          this.appDragLeave(e);
+        }}
+        @drop=${(e: DragEvent) => {
+          this.appDrop(e);
+        }}
       >
+        <div
+          class="local-file-drop-overlay"
+          ?is-visible=${this.isDraggingLocalFile}
+          aria-hidden=${this.isDraggingLocalFile ? 'false' : 'true'}
+        >
+          <div class="local-file-drop-panel">
+            <div class="local-file-drop-title">
+              Drop a local JSON or JSONL file
+            </div>
+            <div class="local-file-drop-subtitle">
+              Euphony will load one file at a time using the existing local file
+              parser.
+            </div>
+          </div>
+        </div>
+
         ${tooltipTemplate} ${preferenceWindowTemplate}
 
         <nightjar-confirm-dialog
@@ -2306,235 +2407,243 @@ export class EuphonyApp extends LitElement {
           ></nightjar-toast>
         </div>
 
-        <div class="header">
-          <a class="name" href="./"
-            >${this.isEditorMode ? 'Euphony Editor' : 'Euphony'}</a
-          >
-          <input
-            id="local-file-input"
-            type="file"
-            accept=".json,.jsonl,application/json,application/x-ndjson,text/plain"
-            hidden
-            @change=${(e: Event) => {
-              this.localFileInputChanged(e);
-            }}
-          />
-          <sl-input
-            size="small"
-            placeholder="Public JSON or JSONL URL"
-            value=${initURL}
-            clearable
-            spellcheck="false"
-            @keydown=${(e: KeyboardEvent) => {
-              // Avoid triggering the page navigation when pressing arrow keys
-              e.stopPropagation();
+        <div class="app" ?is-loading=${this.isLoadingData}>
+          <div class="header">
+            <a class="name" href="./"
+              >${this.isEditorMode ? 'Euphony Editor' : 'Euphony'}</a
+            >
+            <input
+              id="local-file-input"
+              type="file"
+              accept=".json,.jsonl,application/json,application/x-ndjson,text/plain"
+              hidden
+              @change=${(e: Event) => {
+                this.localFileInputChanged(e);
+              }}
+            />
+            <sl-input
+              size="small"
+              placeholder="Public JSON or JSONL URL"
+              value=${initURL}
+              clearable
+              spellcheck="false"
+              @keydown=${(e: KeyboardEvent) => {
+                // Avoid triggering the page navigation when pressing arrow keys
+                e.stopPropagation();
 
-              const target = e.target as HTMLElement | null;
-              // Load the page when pressing enter
-              if (e.key === 'Enter') {
-                this.loadButtonClicked().then(
-                  () => {
-                    target?.blur();
-                  },
-                  () => {}
-                );
-              }
-            }}
-          >
-          </sl-input>
-
-          <button
-            class="button-load"
-            @click=${() => {
-              this.loadButtonClicked().then(
-                () => {},
-                () => {}
-              );
-            }}
-          >
-            Load
-          </button>
-
-          ${downloadButtonTemplate}
-
-          <button
-            class="button button-menu"
-            @click=${() => {
-              this.showToolBarMenu = !this.showToolBarMenu;
-              if (this.showToolBarMenu) {
-                const menuContainer =
-                  this.shadowRoot?.querySelector<HTMLElement>(
-                    '.menu-container'
+                const target = e.target as HTMLElement | null;
+                // Load the page when pressing enter
+                if (e.key === 'Enter') {
+                  this.loadButtonClicked().then(
+                    () => {
+                      target?.blur();
+                    },
+                    () => {}
                   );
-
-                if (menuContainer) {
-                  menuContainer.focus();
                 }
-              }
-            }}
-          >
-            <span class="svg-icon question-icon">${unsafeHTML(iconInfo)}</span>
-            <div
-              class="menu-container"
-              ?no-show=${!this.showToolBarMenu}
-              tabindex="0"
-              @blur=${(e: FocusEvent) => {
-                // Ignore the blur event if it is from the button
-                const relatedTarget = e.relatedTarget as HTMLElement | null;
-                let timeout = 0;
-                if (relatedTarget?.classList.contains('button-menu')) {
-                  return;
-                }
-
-                // Check if the blur event is from the menu's button
-                if (relatedTarget?.tagName === 'NIGHTJAR-MENU') {
-                  timeout = 200;
-                }
-
-                setTimeout(() => {
-                  this.showToolBarMenu = false;
-                }, timeout);
               }}
             >
-              <nightjar-menu
-                .menuItems=${[
-                  {
-                    name: 'Preferences',
-                    icon: iconSetting
-                  },
-                  {
-                    name: 'Load without cache',
-                    icon: iconCache
-                  },
-                  {
-                    name: 'Load from clipboard',
-                    icon: iconClipboard
-                  },
-                  {
-                    name: 'Load local file',
-                    icon: iconLaptop
-                  },
-                  {
-                    name: this.isEditorMode
-                      ? 'Leave editor mode'
-                      : 'Editor mode',
-                    icon: iconEdit
-                  },
-                  {
-                    name: 'Filter data',
-                    icon: iconFilter
-                  },
-                  {
-                    name: 'Code',
-                    icon: iconCode
-                  }
-                ]}
-                @menu-item-clicked=${(e: CustomEvent<MenuItems>) => {
-                  this.menuItemClicked(e);
-                }}
-              ></nightjar-menu>
-            </div>
-          </button>
-        </div>
+            </sl-input>
 
-        <div class="content">
-          <div class="loader-container" ?is-loading=${this.isLoadingData}>
-            <div class="loader-label">Loading data</div>
-            <div class="loader"></div>
-          </div>
-
-          <div
-            class="empty-error-message"
-            ?is-hidden=${this.totalConversationSize > 0}
-          >
-            ☹️ No conversation loaded
-          </div>
-
-          <div class="content-center">
-            <div
-              class="grid-header"
-              ?is-hidden=${this.totalConversationSize === 0}
+            <button
+              class="button-load"
+              @click=${() => {
+                this.loadButtonClicked().then(
+                  () => {},
+                  () => {}
+                );
+              }}
             >
-              ${selectAllButtonTemplate}
-              <div class="count-label">
-                ${this.isEditorMode
-                  ? `${NUM_FORMATTER(this.selectedConversationIDs.size)} / `
-                  : ''}
-                ${NUM_FORMATTER(this.totalConversationSize)}
-                ${this.jmespathQuery !== '' ? 'matched' : 'total'}
-                ${this.dataType === DataType.JSON ? 'items' : 'conversations'}
-                ${this.jmespathQuery !== ''
-                  ? `(${NUM_FORMATTER(this.totalConversationSizeIncludingUnfiltered)} total)`
-                  : ''}
+              Load
+            </button>
+
+            ${downloadButtonTemplate}
+
+            <button
+              class="button button-menu"
+              @click=${() => {
+                this.showToolBarMenu = !this.showToolBarMenu;
+                if (this.showToolBarMenu) {
+                  const menuContainer =
+                    this.shadowRoot?.querySelector<HTMLElement>(
+                      '.menu-container'
+                    );
+
+                  if (menuContainer) {
+                    menuContainer.focus();
+                  }
+                }
+              }}
+            >
+              <span class="svg-icon question-icon"
+                >${unsafeHTML(iconInfo)}</span
+              >
+              <div
+                class="menu-container"
+                ?no-show=${!this.showToolBarMenu}
+                tabindex="0"
+                @blur=${(e: FocusEvent) => {
+                  // Ignore the blur event if it is from the button
+                  const relatedTarget = e.relatedTarget as HTMLElement | null;
+                  let timeout = 0;
+                  if (relatedTarget?.classList.contains('button-menu')) {
+                    return;
+                  }
+
+                  // Check if the blur event is from the menu's button
+                  if (relatedTarget?.tagName === 'NIGHTJAR-MENU') {
+                    timeout = 200;
+                  }
+
+                  setTimeout(() => {
+                    this.showToolBarMenu = false;
+                  }, timeout);
+                }}
+              >
+                <nightjar-menu
+                  .menuItems=${[
+                    {
+                      name: 'Preferences',
+                      icon: iconSetting
+                    },
+                    {
+                      name: 'Load without cache',
+                      icon: iconCache
+                    },
+                    {
+                      name: 'Load from clipboard',
+                      icon: iconClipboard
+                    },
+                    {
+                      name: 'Load local file',
+                      icon: iconLaptop
+                    },
+                    {
+                      name: this.isEditorMode
+                        ? 'Leave editor mode'
+                        : 'Editor mode',
+                      icon: iconEdit
+                    },
+                    {
+                      name: 'Filter data',
+                      icon: iconFilter
+                    },
+                    {
+                      name: 'Code',
+                      icon: iconCode
+                    }
+                  ]}
+                  @menu-item-clicked=${(e: CustomEvent<MenuItems>) => {
+                    this.menuItemClicked(e);
+                  }}
+                ></nightjar-menu>
               </div>
-              ${queryLabels}
-            </div>
-
-            <div class="conversation-list" ?is-grid-view=${this.isGridView}>
-              ${conversationsTemplate}
-            </div>
-
-            <div class="footer">
-              <nightjar-pagination
-                ?is-hidden=${this.totalConversationSize < 1}
-                .curPage=${this.curPage}
-                .totalPageNum=${this.totalPageNum}
-                .itemsPerPage=${this.itemsPerPage}
-                .itemsPerPageOptions=${[1, 2, 3, 4, 5, 10, 25, 50, 100]}
-                @page-clicked=${(e: CustomEvent<number>) => {
-                  this.pageClicked(e);
-                }}
-                @items-per-page-changed=${(e: CustomEvent<number>) => {
-                  this.itemsPerPageChanged(e);
-                }}
-              ></nightjar-pagination>
-            </div>
+            </button>
           </div>
 
-          <div class="content-left">
-            <div class="content-left-inner"></div>
-            <div class="left-margin-footer">
-              <div class="cache-row">
-                <div
-                  class="cache-info"
-                  ?is-hidden=${!this.isLoadingFromCache}
-                  @mouseenter=${(e: MouseEvent) => {
-                    this.cacheInfoMouseEnter(e);
+          <div class="content">
+            <div class="loader-container" ?is-loading=${this.isLoadingData}>
+              <div class="loader-label">Loading data</div>
+              <div class="loader"></div>
+            </div>
+
+            <div
+              class="empty-error-message"
+              ?is-hidden=${this.totalConversationSize > 0}
+            >
+              ☹️ No conversation loaded
+            </div>
+
+            <div class="content-center">
+              <div
+                class="grid-header"
+                ?is-hidden=${this.totalConversationSize === 0}
+              >
+                ${selectAllButtonTemplate}
+                <div class="count-label">
+                  ${this.isEditorMode
+                    ? `${NUM_FORMATTER(this.selectedConversationIDs.size)} / `
+                    : ''}
+                  ${NUM_FORMATTER(this.totalConversationSize)}
+                  ${this.jmespathQuery !== '' ? 'matched' : 'total'}
+                  ${this.dataType === DataType.JSON ? 'items' : 'conversations'}
+                  ${this.jmespathQuery !== ''
+                    ? `(${NUM_FORMATTER(this.totalConversationSizeIncludingUnfiltered)} total)`
+                    : ''}
+                </div>
+                ${queryLabels}
+              </div>
+
+              <div class="conversation-list" ?is-grid-view=${this.isGridView}>
+                ${conversationsTemplate}
+              </div>
+
+              <div class="footer">
+                <nightjar-pagination
+                  ?is-hidden=${this.totalConversationSize < 1}
+                  .curPage=${this.curPage}
+                  .totalPageNum=${this.totalPageNum}
+                  .itemsPerPage=${this.itemsPerPage}
+                  .itemsPerPageOptions=${[1, 2, 3, 4, 5, 10, 25, 50, 100]}
+                  @page-clicked=${(e: CustomEvent<number>) => {
+                    this.pageClicked(e);
                   }}
-                  @mouseleave=${() => {
-                    this.cacheInfoMouseLeave();
+                  @items-per-page-changed=${(e: CustomEvent<number>) => {
+                    this.itemsPerPageChanged(e);
                   }}
-                >
-                  <span class="svg-icon icon">
-                    ${unsafeHTML(iconInfoSmall)}
-                  </span>
-                  <span class="cache-label"> Data loaded from cache</span>
+                ></nightjar-pagination>
+              </div>
+            </div>
+
+            <div class="content-left">
+              <div class="content-left-inner"></div>
+              <div class="left-margin-footer">
+                <div class="cache-row">
+                  <div
+                    class="cache-info"
+                    ?is-hidden=${!this.isLoadingFromCache}
+                    @mouseenter=${(e: MouseEvent) => {
+                      this.cacheInfoMouseEnter(e);
+                    }}
+                    @mouseleave=${() => {
+                      this.cacheInfoMouseLeave();
+                    }}
+                  >
+                    <span class="svg-icon icon">
+                      ${unsafeHTML(iconInfoSmall)}
+                    </span>
+                    <span class="cache-label"> Data loaded from cache</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="content-right">
-            <div class="content-right-inner"></div>
-            <div class="scroll-button-container">
-              <button
-                class="scroll-button scroll-button-up"
-                ?is-visible=${this.showScrollTopButton}
-                @click=${() => {
-                  this.scrollToTop(0, 'smooth');
-                }}
-              >
-                <span class="svg-icon icon"> ${unsafeHTML(iconArrowUp)} </span>
-              </button>
-              <button
-                class="scroll-button scroll-button-down"
-                ?is-visible=${this.showScrollTopButton}
-                @click=${() => {
-                  this.scrollToBottom('smooth');
-                }}
-              >
-                <span class="svg-icon icon"> ${unsafeHTML(iconArrowUp)} </span>
-              </button>
+            <div class="content-right">
+              <div class="content-right-inner"></div>
+              <div class="scroll-button-container">
+                <button
+                  class="scroll-button scroll-button-up"
+                  ?is-visible=${this.showScrollTopButton}
+                  @click=${() => {
+                    this.scrollToTop(0, 'smooth');
+                  }}
+                >
+                  <span class="svg-icon icon">
+                    ${unsafeHTML(iconArrowUp)}
+                  </span>
+                </button>
+                <button
+                  class="scroll-button scroll-button-down"
+                  ?is-visible=${this.showScrollTopButton}
+                  @click=${() => {
+                    this.scrollToBottom('smooth');
+                  }}
+                >
+                  <span class="svg-icon icon">
+                    ${unsafeHTML(iconArrowUp)}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
