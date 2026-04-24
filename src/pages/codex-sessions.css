@@ -1,13 +1,19 @@
+@import '../css/component-global.css';
+
 :host {
-  --page-ink: hsl(168, 28%, 18%);
-  --page-ink-muted: hsl(168, 12%, 36%);
-  --page-border: hsl(165, 20%, 82%);
-  --page-surface: rgba(255, 252, 247, 0.92);
-  --page-surface-strong: hsl(42, 60%, 98%);
-  --page-shadow: 0 24px 60px rgba(31, 51, 46, 0.12);
-  --page-accent: hsl(15, 76%, 46%);
-  --page-accent-dark: hsl(15, 80%, 36%);
-  --page-accent-soft: hsl(34, 100%, 93%);
+  /* Reuse the main Euphony neutral/blue palette so the sessions page reads as
+   * another surface of the same app instead of a separate themed microsite.
+   */
+  --page-ink: var(--gray-900);
+  --page-ink-muted: var(--blue-gray-600);
+  --page-border: var(--gray-300);
+  --page-surface: rgba(255, 255, 255, 0.94);
+  --page-surface-strong: var(--gray-50);
+  --page-shadow: var(--shadow-border-large);
+  --page-accent: var(--blue-700);
+  --page-accent-dark: var(--blue-800);
+  --page-accent-soft: var(--blue-gray-50);
+  --page-hover-surface: var(--gray-100);
 
   display: block;
   width: 100%;
@@ -21,8 +27,12 @@
   min-height: 100vh;
   overflow-y: auto;
   background:
-    radial-gradient(circle at top left, rgba(255, 200, 151, 0.45), transparent 36%),
-    linear-gradient(180deg, hsl(39, 82%, 96%) 0%, hsl(149, 36%, 96%) 100%);
+    radial-gradient(
+      circle at top left,
+      hsla(206, 89%, 54%, 0.07),
+      transparent 34%
+    ),
+    linear-gradient(180deg, var(--gray-50) 0%, var(--gray-100) 100%);
 }
 
 .page-content {
@@ -90,8 +100,12 @@
   padding: 18px;
   border-radius: 20px;
   background:
-    linear-gradient(140deg, rgba(255, 255, 255, 0.85), rgba(255, 245, 230, 0.85));
-  border: 1px solid rgba(219, 190, 164, 0.8);
+    linear-gradient(
+      140deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(244, 247, 250, 0.96)
+    );
+  border: 1px solid var(--gray-300);
 }
 
 .nav-link,
@@ -118,9 +132,15 @@
   background: linear-gradient(
     135deg,
     var(--page-accent) 0%,
-    hsl(24, 85%, 52%) 100%
+    var(--blue-600) 100%
   );
-  box-shadow: 0 14px 24px rgba(220, 93, 28, 0.22);
+  box-shadow: 0 8px 24px hsla(212, 69%, 46%, 0.22);
+}
+
+.primary-link:visited,
+.primary-link:hover,
+.primary-link:active {
+  color: white;
 }
 
 .secondary-button {
@@ -128,13 +148,17 @@
   padding: 0 18px;
   border: 1px solid var(--page-border);
   color: var(--page-ink);
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .nav-link:hover,
 .action-button:hover,
 .session-link:hover {
   transform: translateY(-1px);
+}
+
+.secondary-button:hover {
+  background: var(--page-hover-surface);
 }
 
 .toolbar-card,
@@ -177,8 +201,8 @@
 }
 
 .filter-field input:focus {
-  border-color: rgba(204, 87, 27, 0.72);
-  box-shadow: 0 0 0 4px rgba(220, 93, 28, 0.12);
+  border-color: hsla(209, 79%, 51%, 0.72);
+  box-shadow: 0 0 0 4px hsla(206, 89%, 54%, 0.12);
 }
 
 .filter-actions {
@@ -198,7 +222,7 @@
 .results-row {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(191, 206, 201, 0.8);
+  border-top: 1px solid var(--gray-300);
 }
 
 .results-copy {
@@ -220,8 +244,8 @@
 }
 
 .error-card {
-  border-color: rgba(183, 56, 37, 0.28);
-  background: rgba(255, 247, 244, 0.96);
+  border-color: hsla(1, 83%, 63%, 0.32);
+  background: hsla(350, 100%, 96%, 0.98);
 }
 
 .session-list {
@@ -297,7 +321,7 @@
 .info-card {
   min-width: 0;
   padding: 16px;
-  border: 1px solid rgba(191, 206, 201, 0.85);
+  border: 1px solid var(--gray-300);
   border-radius: 18px;
   background: var(--page-surface-strong);
 }
@@ -331,7 +355,7 @@
 code {
   padding: 2px 6px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--gray-100);
   font-family:
     'SFMono-Regular', 'SF Mono', 'Roboto Mono', Consolas, monospace;
   font-size: 0.9em;
