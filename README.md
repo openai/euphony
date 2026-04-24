@@ -119,12 +119,60 @@ The current backend includes a remote URL fetch path for loading JSON and JSONL 
 To develop Euphony locally, install Node.js and a package manager such as
 [pnpm](https://pnpm.io/).
 
+For the optional FastAPI backend, use Python 3.9 or newer and install the
+Python dependencies from `pyproject.toml`. Euphony currently pins
+`openai-harmony==0.0.4` because newer releases may require a local Rust
+toolchain during installation on some environments.
+
+After installing dependencies, the easiest way to run Euphony locally is with
+`./start.sh`.
+
+Start in the default production-style local mode:
+
+```bash
+python3.9 -m pip install -e .
+pnpm install
+pnpm run build
+./start.sh
+```
+
+This mode starts only the FastAPI server on `http://127.0.0.1:8020` and serves
+the prebuilt frontend from `dist/`, including `http://127.0.0.1:8020/sessions.html`.
+
+Start in explicit development mode:
+
+```bash
+./start.sh dev
+```
+
+Development mode starts both:
+
+- the backend with `uvicorn --reload`
+- the Vite frontend dev server with hot module reload
+
+You can override ports in either mode:
+
+```bash
+BACKEND_PORT=8025 FRONTEND_PORT=3005 ./start.sh dev
+```
+
+`./start.sh` also accepts `MODE=prod` or `MODE=dev` if you prefer environment
+variables over positional arguments.
+
+If you prefer to launch the pieces manually, use the commands below.
+
 Start the backend server:
 
 ```bash
+python3.9 -m pip install -e .
 pnpm install
 uvicorn fastapi-main:app --app-dir server --host 127.0.0.1 --port 8020 --reload
 ```
+
+The first backend Harmony render may download `o200k_base.tiktoken` from
+`https://openaipublic.blob.core.windows.net/encodings/`. If your environment
+cannot reach that URL, set `TIKTOKEN_ENCODINGS_BASE` to a local directory that
+already contains the tokenizer file.
 
 Start the frontend development server:
 

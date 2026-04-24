@@ -113,6 +113,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
   border-radius: 999px;
   font: inherit;
   font-weight: 700;
@@ -155,6 +156,10 @@
 .action-button:hover,
 .session-link:hover {
   transform: translateY(-1px);
+}
+
+.primary-link:hover {
+  text-decoration: none;
 }
 
 .secondary-button:hover {

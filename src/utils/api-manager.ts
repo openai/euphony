@@ -12,11 +12,16 @@ import {
   renderHarmonyConversationInBrowser
 } from './harmony-render';
 
-export let EUPHONY_API_URL =
-  (import.meta.env.VITE_EUPHONY_API_URL as string) || '/';
+// Let local dev override the backend origin when the helper script launches
+// Vite against a non-default API port, while still falling back to the
+// existing relative URL in built production assets.
+const configuredAPIURL =
+  (import.meta.env.VITE_EUPHONY_API_URL as string | undefined) || '';
+
+export let EUPHONY_API_URL = configuredAPIURL || '/';
 
 if (import.meta.env.DEV) {
-  EUPHONY_API_URL = 'http://localhost:8020/';
+  EUPHONY_API_URL = configuredAPIURL || 'http://localhost:8020/';
 }
 
 // The maximum number of lines in a JSONL file to read in frontend-only mode
