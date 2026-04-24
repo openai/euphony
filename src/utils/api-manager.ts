@@ -6,6 +6,7 @@ import type {
   RefreshRendererListResponse
 } from '../types/common-types';
 import type { Conversation } from '../types/harmony-types';
+import { isCodexSessionJSONL } from './codex-session';
 import {
   HARMONY_RENDERER_NAME,
   renderHarmonyConversationInBrowser
@@ -154,26 +155,80 @@ export const extractConversationFromJSONL = (
   return null;
 };
 
-const isJsonLikePath = (path: string) =>
-  path.split('.').at(-1) === 'json' || path.split('.').at(-2) === 'json';
-
-const parseJsonFileOrJsonlText = (text: string): unknown[] => {
+const isJsonLikePath = (path: string) => {
   try {
-    return [JSON.parse(text)];
-  } catch (_) {
-    const lines = text
-      .split(/\r?\n/)
-      .filter(l => l.length > 0)
-      .slice(0, FRONTEND_ONLY_MODE_MAX_LINES);
-    const results: unknown[] = [];
-    for (const line of lines) {
+    const parsedURL = new URL(path, window.location.href);
+    const extension = parsedURL.pathname.split('.').at(-1)?.toLowerCase();
+    return (
+      extension === 'json' || extension === 'jsonl' || extension === 'ndjson'
+    );
+  } catch (_error) {
+    const extension = path.split('.').at(-1)?.toLowerCase();
+    return (
+      extension === 'json' || extension === 'jsonl' || extension === 'ndjson'
+    );
+  }
+};
+
+const isJSONLikeContentType = (contentType: string | null) => {
+  if (!contentType) {
+    return false;
+  }
+
+  const normalized = contentType.toLowerCase();
+  return (
+    normalized.includes('application/json') ||
+    normalized.includes('application/x-ndjson') ||
+    normalized.includes('application/ndjson')
+  );
+};
+
+const parseJSONLText = (text: string, maxLines: number | null): unknown[] => {
+  const results: unknown[] = [];
+  let lineStart = 0;
+
+  // Parse JSONL incrementally so preview reads do not allocate a giant array of
+  // every line in the file when we only need the first N lines to classify the
+  // payload type.
+  while (lineStart <= text.length) {
+    if (maxLines !== null && results.length >= maxLines) {
+      break;
+    }
+
+    const nextLineBreak = text.indexOf('\n', lineStart);
+    const lineEnd = nextLineBreak === -1 ? text.length : nextLineBreak;
+
+    let line = text.slice(lineStart, lineEnd);
+    if (line.endsWith('\r')) {
+      line = line.slice(0, -1);
+    }
+
+    if (line.length > 0) {
       try {
         results.push(JSON.parse(line));
       } catch (_) {
-        // pass
+        // Ignore malformed lines and keep parsing the rest of the JSONL file.
       }
     }
-    return results;
+
+    if (nextLineBreak === -1) {
+      break;
+    }
+
+    lineStart = nextLineBreak + 1;
+  }
+
+  return results;
+};
+
+const parseJsonFileOrJsonlText = (
+  text: string,
+  maxLines: number | null = FRONTEND_ONLY_MODE_MAX_LINES
+): unknown[] => {
+  try {
+    return [JSON.parse(text)];
+  } catch (_) {
+    return parseJSONLText(text, maxLines);
   }
 };
 
@@ -342,9 +397,24 @@ export class BrowserAPIManager {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    if (isJsonLikePath(blobURL)) {
+    if (
+      isJsonLikePath(blobURL) ||
+      isJSONLikeContentType(response.headers.get('content-type'))
+    ) {
       const text = await response.text();
-      const results = parseJsonFileOrJsonlText(text);
+      let results = parseJsonFileOrJsonlText(text);
+
+      // Codex session detail pages need the complete event stream so later
+      // assistant turns are not dropped. We still keep the preview cap for
+      // generic JSONL datasets to avoid heavy browser-side parsing on large
+      // files that are not single-session logs.
+      if (
+        results.length === FRONTEND_ONLY_MODE_MAX_LINES &&
+        isCodexSessionJSONL(results)
+      ) {
+        results = parseJsonFileOrJsonlText(text, null);
+      }
+
       let conversationData: Conversation[] | string[] | null =
         extractConversationFromJSONL(results);
 

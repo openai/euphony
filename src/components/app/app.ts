@@ -2310,6 +2310,9 @@ export class EuphonyApp extends LitElement {
           <a class="name" href="./"
             >${this.isEditorMode ? 'Euphony Editor' : 'Euphony'}</a
           >
+          <a class="header-link header-link-sessions" href="./sessions.html"
+            >Sessions</a
+          >
           <input
             id="local-file-input"
             type="file"

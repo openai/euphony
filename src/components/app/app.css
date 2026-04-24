@@ -78,6 +78,23 @@
     font-weight: 700;
   }
 
+  .header-link {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--gray-300);
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.9);
+    font-size: var(--font-d2);
+    font-weight: 600;
+
+    &:hover {
+      background-color: var(--gray-100);
+    }
+  }
+
   & a {
     color: inherit;
     text-decoration: none;
