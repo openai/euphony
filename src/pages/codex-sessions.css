@@ -174,7 +174,7 @@
 
 .filters {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
   gap: 14px;
 }
@@ -205,13 +205,53 @@
   font: inherit;
 }
 
+.filter-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 1px solid var(--page-border);
+  border-radius: 14px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--page-ink);
+  font: inherit;
+}
+
+.filter-field select:disabled {
+  cursor: not-allowed;
+  color: var(--blue-gray-500);
+  background: var(--gray-100);
+}
+
 .filter-field input:focus {
   border-color: hsla(209, 79%, 51%, 0.72);
   box-shadow: 0 0 0 4px hsla(206, 89%, 54%, 0.12);
 }
 
-.filter-actions {
+.filter-field select:focus {
+  border-color: hsla(209, 79%, 51%, 0.72);
+  box-shadow: 0 0 0 4px hsla(206, 89%, 54%, 0.12);
+}
+
+.search-row {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.8fr)
+    minmax(180px, 0.8fr)
+    auto;
+  align-items: end;
+  gap: 14px;
+}
+
+.search-field,
+.search-mode-field {
+  align-self: stretch;
+}
+
+.filter-actions {
   display: flex;
   justify-self: start;
   align-items: center;
@@ -220,8 +260,41 @@
   gap: 10px;
 }
 
+.mobile-filter-actions {
+  display: none;
+}
+
 .action-button {
   white-space: nowrap;
+}
+
+.results-note {
+  grid-column: 1 / -1;
+  color: var(--page-ink-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.field-filter-note {
+  margin-top: -2px;
+}
+
+.summary-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-left: 0.15rem;
+  border: 1px solid var(--gray-400);
+  border-radius: 999px;
+  color: var(--page-accent-dark);
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: super;
+  cursor: help;
 }
 
 .results-row {
@@ -376,6 +449,10 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .search-row {
+    grid-template-columns: 1fr;
+  }
+
   .session-header {
     flex-direction: column;
   }
@@ -387,6 +464,15 @@ code {
   .filter-actions {
     align-items: stretch;
     flex-wrap: wrap;
+  }
+
+  .search-row .filter-actions {
+    display: none;
+  }
+
+  .mobile-filter-actions {
+    display: flex;
+    grid-column: 1 / -1;
   }
 
   .page-content {

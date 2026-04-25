@@ -27,8 +27,11 @@ interface CodexSessionListResponse {
   matchedCount: number;
 }
 
+type CodexSessionSearchMode = 'exact' | 'fuzzy' | 'full_text';
+
 const DEFAULT_ITEMS_PER_PAGE = 25;
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
+const DEFAULT_SEARCH_MODE: CodexSessionSearchMode = 'full_text';
 
 @customElement('euphony-codex-sessions-page')
 export class EuphonyCodexSessionsPage extends LitElement {
@@ -54,10 +57,28 @@ export class EuphonyCodexSessionsPage extends LitElement {
   appliedLastPromptFilter = '';
 
   @state()
+  appliedResponseFilter = '';
+
+  @state()
+  appliedSearchQuery = '';
+
+  @state()
+  appliedSearchMode: CodexSessionSearchMode = DEFAULT_SEARCH_MODE;
+
+  @state()
   firstPromptFilterInput = '';
 
   @state()
   lastPromptFilterInput = '';
+
+  @state()
+  responseFilterInput = '';
+
+  @state()
+  searchQueryInput = '';
+
+  @state()
+  searchModeInput: CodexSessionSearchMode = DEFAULT_SEARCH_MODE;
 
   @state()
   isLoading = false;
@@ -83,6 +104,23 @@ export class EuphonyCodexSessionsPage extends LitElement {
     return (this.curPage - 1) * this.itemsPerPage;
   }
 
+  private get hasSearchQueryInput() {
+    return this.searchQueryInput.trim() !== '';
+  }
+
+  private get hasAppliedSearchQuery() {
+    return this.appliedSearchQuery.trim() !== '';
+  }
+
+  private normalizeSearchMode(
+    rawValue: string | null
+  ): CodexSessionSearchMode {
+    if (rawValue === 'exact' || rawValue === 'fuzzy' || rawValue === 'full_text') {
+      return rawValue;
+    }
+    return DEFAULT_SEARCH_MODE;
+  }
+
   private readStateFromURL() {
     const params = new URLSearchParams(window.location.search);
 
@@ -104,10 +142,19 @@ export class EuphonyCodexSessionsPage extends LitElement {
 
     const firstPromptParam = params.get('firstPrompt') ?? '';
     const lastPromptParam = params.get('lastPrompt') ?? '';
+    const responseParam = params.get('response') ?? '';
+    const searchParam = params.get('search') ?? '';
+    const searchModeParam = this.normalizeSearchMode(params.get('searchMode'));
     this.appliedFirstPromptFilter = firstPromptParam;
     this.appliedLastPromptFilter = lastPromptParam;
+    this.appliedResponseFilter = responseParam;
+    this.appliedSearchQuery = searchParam;
+    this.appliedSearchMode = searchModeParam;
     this.firstPromptFilterInput = firstPromptParam;
     this.lastPromptFilterInput = lastPromptParam;
+    this.responseFilterInput = responseParam;
+    this.searchQueryInput = searchParam;
+    this.searchModeInput = searchModeParam;
   }
 
   private updateURL() {
@@ -121,6 +168,13 @@ export class EuphonyCodexSessionsPage extends LitElement {
 
     if (this.appliedLastPromptFilter) {
       params.set('lastPrompt', this.appliedLastPromptFilter);
+    }
+    if (this.appliedResponseFilter) {
+      params.set('response', this.appliedResponseFilter);
+    }
+    if (this.appliedSearchQuery) {
+      params.set('search', this.appliedSearchQuery);
+      params.set('searchMode', this.appliedSearchMode);
     }
 
     const query = params.toString();
@@ -155,6 +209,13 @@ export class EuphonyCodexSessionsPage extends LitElement {
       }
       if (this.appliedLastPromptFilter) {
         params.set('lastPromptFilter', this.appliedLastPromptFilter);
+      }
+      if (this.appliedResponseFilter) {
+        params.set('responseFilter', this.appliedResponseFilter);
+      }
+      if (this.appliedSearchQuery) {
+        params.set('searchQuery', this.appliedSearchQuery);
+        params.set('searchMode', this.appliedSearchMode);
       }
 
       const response = await fetch(
@@ -247,10 +308,25 @@ export class EuphonyCodexSessionsPage extends LitElement {
     `;
   }
 
+  private renderSummaryInfoIcon() {
+    return html`
+      <span
+        class="summary-info-icon"
+        title="Summary means the session card metadata fields such as first prompt, last prompt, last response preview, cwd, session id, and file path."
+        aria-label="Summary means the session card metadata fields such as first prompt, last prompt, last response preview, cwd, session id, and file path."
+      >
+        i
+      </span>
+    `;
+  }
+
   private applyFilters(event: Event) {
     event.preventDefault();
     this.appliedFirstPromptFilter = this.firstPromptFilterInput.trim();
     this.appliedLastPromptFilter = this.lastPromptFilterInput.trim();
+    this.appliedResponseFilter = this.responseFilterInput.trim();
+    this.appliedSearchQuery = this.searchQueryInput.trim();
+    this.appliedSearchMode = this.searchModeInput;
     this.curPage = 1;
     void this.loadSessions();
   }
@@ -258,8 +334,14 @@ export class EuphonyCodexSessionsPage extends LitElement {
   private resetFilters() {
     this.firstPromptFilterInput = '';
     this.lastPromptFilterInput = '';
+    this.responseFilterInput = '';
+    this.searchQueryInput = '';
+    this.searchModeInput = DEFAULT_SEARCH_MODE;
     this.appliedFirstPromptFilter = '';
     this.appliedLastPromptFilter = '';
+    this.appliedResponseFilter = '';
+    this.appliedSearchQuery = '';
+    this.appliedSearchMode = DEFAULT_SEARCH_MODE;
     this.curPage = 1;
     void this.loadSessions();
   }
@@ -285,8 +367,8 @@ export class EuphonyCodexSessionsPage extends LitElement {
               <h1>Codex Sessions</h1>
               <p class="hero-text">
                 Browse JSONL session logs from your local Codex history, filter
-                by the first or last user prompt, and open any session in the
-                main Euphony viewer.
+                by prompts or responses, run fuzzy or full-text searches across
+                sessions, and open any match in the main Euphony viewer.
               </p>
             </div>
 
@@ -325,7 +407,86 @@ export class EuphonyCodexSessionsPage extends LitElement {
                 />
               </label>
 
-              <div class="filter-actions">
+              <label class="filter-field">
+                <span>Filter last response</span>
+                <input
+                  .value=${this.responseFilterInput}
+                  placeholder="e.g. patch is ready"
+                  @input=${(event: InputEvent) => {
+                    const target = event.target as HTMLInputElement;
+                    this.responseFilterInput = target.value;
+                  }}
+                />
+              </label>
+
+              <div class="results-note field-filter-note">
+                Field filters only search their own visible card fields and
+                always use exact keyword matching.
+              </div>
+
+              <div class="search-row">
+                <label class="filter-field search-field">
+                  <span>Search all sessions</span>
+                  <input
+                    .value=${this.searchQueryInput}
+                    placeholder="e.g. telemetry anomaly"
+                    @input=${(event: InputEvent) => {
+                      const target = event.target as HTMLInputElement;
+                      this.searchQueryInput = target.value;
+                    }}
+                  />
+                </label>
+
+                <label class="filter-field search-mode-field">
+                  <span>Search all sessions mode</span>
+                  <select
+                    .value=${this.searchModeInput}
+                    ?disabled=${!this.hasSearchQueryInput}
+                    @change=${(event: Event) => {
+                      const target = event.target as HTMLSelectElement;
+                      this.searchModeInput = this.normalizeSearchMode(
+                        target.value
+                      );
+                    }}
+                  >
+                    <option value="full_text">Full text</option>
+                    <option value="fuzzy">Fuzzy</option>
+                    <option value="exact">Exact</option>
+                  </select>
+                </label>
+
+                <div class="filter-actions">
+                  <button class="action-button primary-button" type="submit">
+                    Apply filters
+                  </button>
+                  <button
+                    class="action-button secondary-button"
+                    type="button"
+                    @click=${() => this.resetFilters()}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              <div class="results-note">
+                ${this.hasSearchQueryInput || this.hasAppliedSearchQuery
+                  ? html`
+                      Search all sessions is active. <code>Full text</code>
+                      scans indexed multi-turn user and assistant text,
+                      <code>Fuzzy</code> tolerates typos across summary
+                      ${this.renderSummaryInfoIcon()} fields, and
+                      <code>Exact</code> matches summary
+                      ${this.renderSummaryInfoIcon()} fields directly.
+                    `
+                  : html`
+                      Search mode only applies to
+                      <code>Search all sessions</code>. Leave that box empty to
+                      use only the field-specific filters above.
+                    `}
+              </div>
+
+              <div class="filter-actions mobile-filter-actions">
                 <button class="action-button primary-button" type="submit">
                   Apply filters
                 </button>
@@ -381,8 +542,8 @@ export class EuphonyCodexSessionsPage extends LitElement {
                 <section class="status-card">
                   <div class="status-title">No matching sessions</div>
                   <div class="status-body">
-                    Try clearing the prompt filters or create a new Codex
-                    session and reload this page.
+                    Try clearing the filters or search query, or create a new
+                    Codex session and reload this page.
                   </div>
                 </section>
               `
