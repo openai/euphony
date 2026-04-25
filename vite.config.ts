@@ -48,6 +48,13 @@ async function getLibraryEntryPoints() {
   return files.filter(file => !file.includes('app'));
 }
 
+function getFrontendHTMLInputs() {
+  return {
+    main: resolve(__dirname, 'index.html'),
+    sessions: resolve(__dirname, 'sessions.html')
+  };
+}
+
 export default defineConfig(async ({ command, mode }) => {
   if (command === 'serve') {
     // Development
@@ -69,9 +76,7 @@ export default defineConfig(async ({ command, mode }) => {
           build: {
             outDir: 'dist',
             rollupOptions: {
-              input: {
-                main: resolve(__dirname, 'index.html')
-              }
+              input: getFrontendHTMLInputs()
             }
           }
         };
@@ -84,9 +89,7 @@ export default defineConfig(async ({ command, mode }) => {
           build: {
             outDir: 'dist',
             rollupOptions: {
-              input: {
-                main: resolve(__dirname, 'index.html')
-              }
+              input: getFrontendHTMLInputs()
             }
           },
           plugins: []
