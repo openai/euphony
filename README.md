@@ -30,6 +30,7 @@ structured chat data and Codex sessions in the browser.
 | :-------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
 | Harmony conversation viewer | Renders Harmony conversations with support for different message types and metadata.                                       |
 | Codex session viewer        | Detects Codex session JSONL files, converts them into a conversation, and renders them in the same viewer.                 |
+| Codex sessions browser      | Lists local Codex sessions with pagination, prompt/response filters, fuzzy search, and full-text search over indexed turns. |
 | Flexible loading            | Loads data from the clipboard, local `.json` or `.jsonl` files, or public HTTP(S) JSON/JSONL URLs.                         |
 | Markdown and HTML rendering | Renders markdown in message content, including formulas and optional HTML blocks.                                          |
 | Translation                 | Translates non-English text into English in normal mode or frontend-only mode with a user-provided OpenAI API key.         |
@@ -57,6 +58,33 @@ There are two ways you can use Euphony.
    2. If the JSONL is a Codex session file → Euphony renders a structured Codex session timeline
    3. If the conversation is stored at some top-level field → Euphony renders all conversations and treat other top-level fields as each conversation’s metadata
    4. Else → Euphony renders the data as raw JSON objects
+
+### Browse Local Codex Sessions
+
+When you run the local backend, Euphony also exposes a dedicated sessions page
+at `/sessions.html`.
+
+The sessions page can:
+
+- paginate through local session logs under `~/.codex/sessions` or
+  `CODEX_HOME/sessions`
+- show each session's first prompt, last prompt, last response preview, and
+  timestamps
+- open any session directly in the main Euphony viewer
+- filter by:
+  - first prompt
+  - last prompt
+  - last response
+- search across sessions with three modes:
+  - `Exact`: keyword matching on session summary fields such as prompts,
+    response preview, `cwd`, session id, and file path
+  - `Fuzzy`: typo-tolerant matching on those same summary fields
+  - `Full text`: indexed search across multi-turn user and assistant text from
+    the whole session
+
+The full-text index is built lazily the first time you run a full-text search
+and is stored locally at `~/.codex/euphony-codex-sessions.sqlite3` or inside
+`CODEX_HOME` when that environment variable is set.
 
 ### Integrate Euphony into My Web App
 
@@ -139,6 +167,9 @@ pnpm run build
 This mode starts only the FastAPI server on `http://127.0.0.1:8020` and serves
 the prebuilt frontend from `dist/`, including `http://127.0.0.1:8020/sessions.html`.
 
+Use this mode when you mainly want to open the local app and the sessions page
+without running a separate Vite dev server.
+
 Start in explicit development mode:
 
 ```bash
@@ -150,6 +181,9 @@ Development mode starts both:
 - the backend with `uvicorn --reload`
 - the Vite frontend dev server with hot module reload
 
+Use this mode when you are changing frontend or backend code and want immediate
+reloads while developing.
+
 You can override ports in either mode:
 
 ```bash
@@ -158,6 +192,12 @@ BACKEND_PORT=8025 FRONTEND_PORT=3005 ./start.sh dev
 
 `./start.sh` also accepts `MODE=prod` or `MODE=dev` if you prefer environment
 variables over positional arguments.
+
+Common local URLs:
+
+- backend-served app: `http://127.0.0.1:8020/`
+- backend-served sessions page: `http://127.0.0.1:8020/sessions.html`
+- frontend dev server in `./start.sh dev`: `http://127.0.0.1:3000/`
 
 If you prefer to launch the pieces manually, use the commands below.
 
