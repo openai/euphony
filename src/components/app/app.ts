@@ -16,8 +16,10 @@ import {
   BrowserAPIManager,
   EUPHONY_API_URL
 } from '../../utils/api-manager';
+import { isAtifTrajectory } from '../../utils/atif-trajectory';
 import { isCodexSessionJSONL } from '../../utils/codex-session';
 import { updatePopperOverlay } from '../../utils/utils';
+import { EuphonyAtif } from '../atif/atif';
 import { EuphonyCodex } from '../codex/codex';
 import { NightjarConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import {
@@ -52,6 +54,7 @@ import iconInfoSmall from '../../images/icon-info-circle-small.svg?raw';
 import iconLaptop from '../../images/icon-macbook.svg?raw';
 import iconSetting from '../../images/icon-settings.svg?raw';
 
+import '../atif/atif';
 import '../codex/codex';
 import '../confirm-dialog/confirm-dialog';
 import '../conversation/conversation';
@@ -74,6 +77,7 @@ export interface ToastMessage {
 enum DataType {
   CONVERSATION = 'conversation',
   CODEX = 'codex',
+  ATIF = 'atif',
   JSON = 'json'
 }
 
@@ -98,7 +102,10 @@ const TOAST_DURATIONS: Record<ToastType, number> = {
   error: 15000
 };
 
-type ConversationViewerElement = EuphonyConversation | EuphonyCodex;
+type ConversationViewerElement =
+  | EuphonyConversation
+  | EuphonyCodex
+  | EuphonyAtif;
 
 let initURL = '';
 
@@ -140,6 +147,9 @@ export class EuphonyApp extends LitElement {
 
   @state()
   codexSessionData: unknown[][] = [];
+
+  @state()
+  atifTrajectoryData: unknown[][] = [];
 
   @state()
   dataType: DataType = DataType.CONVERSATION;
@@ -254,8 +264,12 @@ export class EuphonyApp extends LitElement {
   @state()
   isLoadingFromCache = true;
 
+  // True iff the active dataset was loaded from the user's clipboard. Used to
+  // suppress the share-URL UI for clipboard buffers, which have no addressable
+  // source. File loads clear `blobPath` separately, so they don't need this
+  // flag set to also hide the share URL.
   @state()
-  isLoadingFromClipboard = false;
+  isLoadedFromClipboard = false;
 
   // Grid view mode
   @state()
@@ -1376,6 +1390,7 @@ export class EuphonyApp extends LitElement {
     switch (e.data.command) {
       case 'finishParseData': {
         const { requestID, sourceName, dataType } = e.data.payload;
+        const isClipboardSource = sourceName === 'clipboard';
         const pendingRequest =
           this.localDataWorkerPendingRequests.get(requestID);
         this.localDataWorkerPendingRequests.delete(requestID);
@@ -1387,6 +1402,7 @@ export class EuphonyApp extends LitElement {
         this.isLoadingData = false;
 
         this.codexSessionData = [];
+        this.atifTrajectoryData = [];
         this.allConversationData = [];
         this.conversationData = [];
         this.JSONData = [];
@@ -1398,9 +1414,20 @@ export class EuphonyApp extends LitElement {
           this._totalConversationSize = 1;
           this._totalConversationSizeIncludingUnfiltered = 1;
           this.isLoadingFromCache = false;
-          this.isLoadingFromClipboard = true;
+          this.isLoadedFromClipboard = isClipboardSource;
 
           this.toastMessage = `Codex session loaded successfully from ${sourceName}`;
+          this.toastType = 'success';
+        } else if (dataType === 'atif') {
+          this.atifTrajectoryData = [e.data.payload.atifTrajectoryData];
+          this.selectedConversationIDs = new Set();
+          this.dataType = DataType.ATIF;
+          this._totalConversationSize = 1;
+          this._totalConversationSizeIncludingUnfiltered = 1;
+          this.isLoadingFromCache = false;
+          this.isLoadedFromClipboard = isClipboardSource;
+
+          this.toastMessage = `ATIF loaded successfully from ${sourceName}`;
           this.toastType = 'success';
         } else if (dataType === 'json') {
           this.JSONData = e.data.payload.jsonData;
@@ -1408,7 +1435,7 @@ export class EuphonyApp extends LitElement {
           this._totalConversationSize = this.JSONData.length;
           this._totalConversationSizeIncludingUnfiltered = this.JSONData.length;
           this.isLoadingFromCache = false;
-          this.isLoadingFromClipboard = true;
+          this.isLoadedFromClipboard = isClipboardSource;
 
           this.toastMessage =
             'Failed to find harmony-formatted data. Render JSON instead.';
@@ -1435,7 +1462,7 @@ export class EuphonyApp extends LitElement {
               );
           this.dataType = DataType.CONVERSATION;
           this.isLoadingFromCache = false;
-          this.isLoadingFromClipboard = true;
+          this.isLoadedFromClipboard = isClipboardSource;
 
           this.toastMessage = `Data loaded successfully from ${sourceName}`;
           this.toastType = 'success';
@@ -1511,8 +1538,9 @@ export class EuphonyApp extends LitElement {
     loadedURL: string;
   }> => {
     this.isLoadingData = true;
-    this.isLoadingFromClipboard = false;
+    this.isLoadedFromClipboard = false;
     this.codexSessionData = [];
+    this.atifTrajectoryData = [];
     let loadedURL = blobURL;
     const toastMessages = [];
 
@@ -1545,6 +1573,39 @@ export class EuphonyApp extends LitElement {
       // We know the data is successfully loaded, so we update the URL state
       // early before any follow-up rendering or pagination work.
       blobPath = blobURL;
+
+      if (isAtifTrajectory(data as unknown[])) {
+        this.atifTrajectoryData = [data as unknown[]];
+        this.codexSessionData = [];
+        this.allConversationData = [];
+        this.conversationData = [];
+        this.JSONData = [];
+        this.selectedConversationIDs = new Set();
+        this.dataType = DataType.ATIF;
+        this._totalConversationSize = 1;
+        this._totalConversationSizeIncludingUnfiltered = 1;
+        this.isLoadingData = false;
+        this.isLoadingFromCache = !noCache;
+
+        if (urlHash === '') {
+          this.scrollToTop(0);
+        }
+
+        if (showSuccessToast) {
+          toastMessages.push('ATIF loaded successfully');
+          this.toastMessage = toastMessages.join('\n\n');
+          this.toastType = 'success';
+          if (this.toastComponent) {
+            this.toastComponent.show();
+          }
+        }
+
+        return {
+          isLoadDataSuccessful: true,
+          loadDataMessage: toastMessages.join('\n\n'),
+          loadedURL: loadedURL
+        };
+      }
 
       // Codex sessions are JSONL event streams, not Harmony conversations.
       // Fetch the full event stream if the first page was truncated and route
@@ -1774,7 +1835,8 @@ export class EuphonyApp extends LitElement {
         'euphony-conversation'
       ) ?? []),
       ...(this.shadowRoot?.querySelectorAll<EuphonyCodex>('euphony-codex') ??
-        [])
+        []),
+      ...(this.shadowRoot?.querySelectorAll<EuphonyAtif>('euphony-atif') ?? [])
     ];
   }
 
@@ -1794,6 +1856,9 @@ export class EuphonyApp extends LitElement {
         break;
       case DataType.CODEX:
         conversationList = this.codexSessionData;
+        break;
+      case DataType.ATIF:
+        conversationList = this.atifTrajectoryData;
         break;
       case DataType.JSON:
         conversationList = this.JSONData;
@@ -1820,7 +1885,7 @@ export class EuphonyApp extends LitElement {
               this.isGridView ? undefined : '800'
             )}
             sharing-url=${ifDefined(
-              this.isLoadingFromClipboard ? undefined : url
+              this.isLoadedFromClipboard ? undefined : url
             )}
             data-file-url=${ifDefined(blobPath ?? undefined)}
             focus-mode-author=${JSON.stringify(this.focusModeAuthor)}
@@ -1936,6 +2001,117 @@ export class EuphonyApp extends LitElement {
             }}
           ></euphony-conversation>
         `;
+      } else if (this.dataType === DataType.ATIF) {
+        const curAtifTrajectory = conversation as unknown[];
+        euphonyTemplate = html`
+          <euphony-atif
+            id="euphony-conversation-${curID}"
+            .trajectoryData=${curAtifTrajectory}
+            conversation-max-width=${ifDefined(
+              this.isGridView ? undefined : '800'
+            )}
+            sharing-url=${ifDefined(
+              this.isLoadedFromClipboard ? undefined : url
+            )}
+            focus-mode-author=${JSON.stringify(this.focusModeAuthor)}
+            focus-mode-recipient=${JSON.stringify(this.focusModeRecipient)}
+            focus-mode-content-type=${JSON.stringify(this.focusModeContentType)}
+            ?is-showing-metadata=${this.globalIsShowingMetadata}
+            ?should-render-markdown=${this.globalShouldRenderMarkdown}
+            ?disable-editing-mode-save-button=${true}
+            ?disable-preference-button=${true}
+            ?disable-image-preview-window=${true}
+            ?disable-token-window=${true}
+            theme="light"
+            style=${this.buildEuphonyStyle(this.euphonyStyleConfig)}
+            @refresh-renderer-list-requested=${(
+              e: CustomEvent<RefreshRendererListRequest>
+            ) => {
+              if (this.isFrontendOnlyMode) {
+                this.requestWorker
+                  .frontendOnlyRefreshRendererListRequestHandler(e)
+                  .then(
+                    () => {},
+                    () => {}
+                  );
+              } else {
+                this.requestWorker.refreshRendererListRequestHandler(e).then(
+                  () => {},
+                  () => {}
+                );
+              }
+            }}
+            @harmony-render-requested=${(
+              e: CustomEvent<HarmonyRenderRequest>
+            ) => {
+              if (this.isFrontendOnlyMode) {
+                this.requestWorker
+                  .frontendOnlyHarmonyRenderRequestHandler(e)
+                  .then(
+                    () => {},
+                    () => {}
+                  );
+              } else {
+                this.requestWorker.harmonyRenderRequestHandler(e).then(
+                  () => {},
+                  () => {}
+                );
+              }
+            }}
+            @conversation-metadata-button-toggled=${(
+              e: CustomEvent<boolean>
+            ) => {
+              this.conversationMetadataButtonToggled(e).then(
+                () => {},
+                () => {}
+              );
+            }}
+            @markdown-button-toggled=${(e: CustomEvent<boolean>) => {
+              this.markdownButtonToggled(e).then(
+                () => {},
+                () => {}
+              );
+            }}
+            @translation-requested=${(e: CustomEvent<TranslationRequest>) => {
+              if (this.isFrontendOnlyMode) {
+                this.ensureOpenAIAPIKey()
+                  .then(apiKey => {
+                    if (apiKey) {
+                      this.requestWorker
+                        .frontendOnlyTranslationRequestHandler(e, apiKey)
+                        .then(
+                          () => {},
+                          () => {}
+                        );
+                    } else {
+                      e.detail.reject(
+                        'OpenAI API key is required for frontend-only translation.'
+                      );
+                    }
+                  })
+                  .catch(() => {});
+              } else {
+                this.requestWorker.translationRequestHandler(e).then(
+                  () => {},
+                  () => {}
+                );
+              }
+            }}
+            @fetch-message-sharing-url=${(
+              e: CustomEvent<MessageSharingRequest>
+            ) => {
+              this.requestWorker.fetchMessageSharingURLRequestHandler(
+                e,
+                curID,
+                this.urlManager,
+                blobPath
+              );
+            }}
+            @harmony-render-button-clicked=${(e: CustomEvent<string>) => {
+              this.harmonyRenderButtonClicked(e);
+            }}
+          ></euphony-atif>
+        `;
       } else if (this.dataType === DataType.CODEX) {
         const curCodexSession = conversation as unknown[];
         euphonyTemplate = html`
@@ -1947,7 +2123,7 @@ export class EuphonyApp extends LitElement {
               this.isGridView ? undefined : '800'
             )}
             sharing-url=${ifDefined(
-              this.isLoadingFromClipboard ? undefined : url
+              this.isLoadedFromClipboard ? undefined : url
             )}
             focus-mode-author=${JSON.stringify(this.focusModeAuthor)}
             focus-mode-recipient=${JSON.stringify(this.focusModeRecipient)}

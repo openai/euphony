@@ -1,0 +1,21 @@
+@import '../../css/component-global.css';
+
+/* Wrapper for ATIF (Harbor Agent Trajectory Interchange Format) trajectories.
+   Mirrors the codex component's container styling so the two viewers behave
+   identically to the user — we just want a thin shell around the underlying
+   conversation viewer. */
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+.atif-wrapper {
+  width: 100%;
+}
+
+.empty-state {
+  color: var(--gray-600);
+  font-style: italic;
+  padding: 16px;
+}
